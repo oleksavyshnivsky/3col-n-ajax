@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8">
+	<title>...</title>
+</head>
+<body>
+	<!-- Обгортка для 3-колонкового показу -->
+	<div id="wrapper" class="xxx"> 
+		<!-- Меню -->
+		<div id="menu">
+			<p><a href="javascript:void(0)" data-menuitem="content1.html">Контент 1</a></p>
+			<p><a href="javascript:void(0)" data-menuitem="content2.html">Контент 2</a></p>
+			<p><a href="javascript:void(0)" data-menuitem="content3.html">Контент 3</a></p>
+			<p>
+				<i>Ajax-запити проходять тільки на сервері. Запити до локальних файлів зазвичай блокуються політикою безпеки браузера.</i>
+			</p>
+		</div>
+		<!-- Контент -->
+		<div id="content-wrapper"><i>Тут буде результат Ajax-запиту</i></div>
+		<!-- Права панель -->
+		<div id="right-panel"><i>Третя панель</i></div>
+	</div>
+
+	<script>
+		// e — подія 
+		// e.target — елемент, який згенерував подію
+		function ajax(e) {
+			// Посилання з атрибуту 
+			var href = e.target.dataset.menuitem
+
+			// Об'єкт для AJAX-запиту
+			var xhr = new XMLHttpRequest()
+			// Тип запиту й посилання
+			xhr.open('GET', href)
+			// Що робити, коли сервер поверне відповідь
+			xhr.onload = function() {
+				if (xhr.status === 200) {	// Код відповіді сервера — ОК
+
+					// Текст відповіді сервера вставляємо у центральний блок
+					document.getElementById('content-wrapper').innerHTML = xhr.responseText
+
+					// Знімаємо виділення минулого активного пункту меню (чи пунктів — getElementsByCLassName повертає множину елементів)
+					var elements = document.getElementsByClassName('menuitem-active')
+					Array.from(elements).forEach((element) => {
+						element.classList.remove('menuitem-active')
+					})
+
+					// Виділяємо активний пункт меню
+					e.target.classList.add('menuitem-active')
+				}
+				else {						// Інший код відповіді сервера (не ОК)
+					alert('Невдача. Повернуто статус ' + xhr.status)
+				}
+			}
+			// Виконання запиту
+			xhr.send()
+		}
+
+		// Для кожного елементу [data-menuitem] прив'язати подію "Клік" до функції ajax()
+		document.querySelectorAll('[data-menuitem]').forEach(function(element) {
+			element.addEventListener('click', ajax)			
+		})
+	</script>
+
+	<style>
+		/* 3-колонковий показ */
+		#wrapper {
+			display: flex; /* Діти — в рядок */
+			justify-content: space-between; /* вирівнювання дітей у рядку */
+			width: 100%;	
+			/*max-width: 1000px;*/
+			margin: 0 auto;		/* Якщо ширина екрану більша за max-width — розташовуємо по центру */
+		}
+		#menu, #right-panel {
+			width: 20%;
+			min-width: 200px;
+			background-color: wheat;
+		}
+		#content-wrapper {
+			background-color: whitesmoke;
+		}
+
+		/* Якщо екран вузький */
+		@media (max-width:770px) {
+			#wrapper {
+				flex-wrap: wrap; /* Дітей, що не влазять в один рядок, можна переносити */
+			}
+			#menu, #content-wrapper, #right-panel {
+				width: 100%;
+			}
+		}
+
+		/* Відступи */
+		#wrapper > div {
+			padding: 1rem;
+		}
+
+		/* Активний пункт меню */
+		.menuitem-active {
+			font-weight: bold;
+		}
+	</style>
+</body>
+</html>
