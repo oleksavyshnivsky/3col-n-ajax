@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8">
+	<title>...</title>
+</head>
+<body>
+	<noscript>Для повноцінної роботи цьому сайтові потрібен увімкнений JavaScript.</noscript>
+	<!-- Обгортка для 3-колонкового показу -->
+	<div id="wrapper">
+		<!-- Меню -->
+		<div id="menu">
+			<!-- Посилання у href — ті, що працюватимуть, якщо у користувача вимкнений JavaScript -->
+			<p><a href="content1.html" data-menuitem="?page=content1.html">Контент 1</a></p>
+			<p><a href="content2.html" data-menuitem="?page=content2.html">Контент 2</a></p>
+			<p><a href="content3.html" data-menuitem="?page=content3.html">Контент 3</a></p>
+			<p>
+				<i>Ajax-запити проходять тільки на сервері. Запити до локальних файлів зазвичай блокуються політикою безпеки браузера.</i>
+			</p>
+		</div>
+		<!-- Контент -->
+		<div id="content-wrapper"><i>Тут буде результат Ajax-запиту</i></div>
+		<!-- Права панель -->
+		<div id="right-panel"><i>Третя панель</i></div>
+	</div>
+
+	<script>
+		// Проміжна функція між кліком на посилання і AJAX-запитом
+		// e — подія
+		// e.target — елемент, який згенерував подію
+		function preajax(e) {
+			// Якщо це середня кнопка миші, shift|alt|meta|ctrl + клік — нехай виконується дія за замовчуванням
+			if ((e.which > 1 || e.shiftKey || e.altKey || e.metaKey || e.ctrlKey)) return true
+
+			// Якщо це перехід за посиланням з перезавантаженням сторінки — забороняємо дію за замовчуванням
+			e.preventDefault()
+
+			// Посилання, яке було клікнуте — читаємо із атрибуту data-menuitem
+			var href = e.target.dataset.menuitem
+
+			// Викликаємо функцію ajax і передаємо їй посилання у форматі "?page=[Ім’я HTML-файлу]"
+			ajax(href, true)
+		}
+
+		// Оновлення центральної колонки через AJAX згідно з переданим посиланням
+		// href — посилання у форматі "?page=[Ім’я HTML-файлу]"
+		// addToHistory — чи додавати посилання в історію браузера (true/false)
+		function ajax(href, addToHistory) {
+			// Витягуємо значення змінної page з переданого посилання
+			var url = new URL(href, window.location.href)
+			var realhref = url.searchParams.get('page')
+
+			// Якщо значення page пусте, виходимо
+			if (!realhref) return false
+
+			// Об’єкт для AJAX-запиту
+			var xhr = new XMLHttpRequest()
+			// Тип запиту й посилання
+			xhr.open('GET', realhref)
+			// Що робити, коли сервер поверне відповідь
+			xhr.onload = function() {
+				if (xhr.status === 200) {	// Код відповіді сервера — ОК
+
+					// Знімаємо виділення минулого активного пункту меню (чи пунктів — getElementsByCLassName повертає множину елементів)
+					var elements = document.getElementsByClassName('menuitem-active')
+					Array.from(elements).forEach((element) => {
+						element.classList.remove('menuitem-active')
+					})
+
+					// Робимо активним потрібний пункт меню (якщо такий існує)
+					var el = document.querySelector('[href="'+realhref+'"]')
+					if (el) el.classList.add('menuitem-active')
+
+					// Розбираємо текст відповіді сервера (xhr.responseText)
+					var doc = new DOMParser().parseFromString(xhr.responseText, 'text/html')
+
+					// Підставляємо вміст #content-wrapper завантаженої сторінки у #content-wrapper стартової сторінки
+					document.getElementById('content-wrapper').innerHTML = doc.getElementById('content-wrapper').innerHTML
+
+					// Змінюємо заголовок документу — title має бути першим елементом у head
+					document.title = doc.title
+
+					// Додаємо посилання в історію браузера
+					if (addToHistory) {
+						// {'href':href} — це [Об’єкт історії браузера].state
+						// href у кінці — це посилання, яке підставиться в адресний рядок
+						window.history.pushState({'href':href},'', href)
+						// Альтернативний варіант — підставляти завантажену сторінку в [Об’єкт історії браузера].state,
+						// і тоді при поверненні "Назад" можна буде читати сторінку з історії (тобто пам’яті браузера), а не з сервера.
+						// window.history.pushState({'html':xhr.responseText,'pagetitle':document.title},'', href)
+					}
+				}
+				else {						// Інший код відповіді сервера (не ОК)
+					alert('Невдача. Повернуто статус ' + xhr.status)
+				}
+			}
+			// Виконання запиту
+			xhr.send()
+		}
+
+		// Для кожного елементу [data-menuitem] прив’язати подію "Клік" до функції preajax()
+		document.querySelectorAll('[data-menuitem]').forEach(function(element) {
+			element.addEventListener('click', preajax)
+			// І також замінити посилання у href — щоб Ajax-орієнтовані посилання працювали при відкритті у новій вкладці
+			element.href = element.dataset.menuitem
+		})
+
+		// Після завантаження стартової сторінки (центральна колонка ефективно пуста) — виконати AJAX-запит для підстановки правильного вмісту центральної колонки
+		// window.location.href — посилання з адресного рядка
+		// false — бо це посилання уже є в історії браузера
+		window.onload = function() {
+			ajax(window.location.href, false)
+		}
+
+		// Реакція на браузерні "вперед/назад"
+		// e — об’єкт з історії браузера
+		window.onpopstate = function(e){
+			if (e.state) {
+				// Ajax-запит за посиланням, збереженим в історії браузера
+				// false — бо ми й так його з історії читаємо
+				ajax(e.state.href, false)
+			}
+			// Альтернативний варіант — читати сторінку з історії (тобто пам’яті браузера), а не з сервера.
+			// if (e.state) {
+			// 	document.getElementById('content-wrapper').innerHTML = e.state.html
+			// 	document.title = e.state.pagetitle
+			// }
+		}
+	</script>
+
+	<style>
+		/* 3-колонковий показ */
+		#wrapper {
+			display: flex; /* Діти — в рядок */
+			justify-content: space-between; /* вирівнювання дітей у рядку */
+			width: 100%;	
+			/*max-width: 1000px;*/
+			margin: 0 auto;		/* Якщо ширина екрану більша за max-width — розташовуємо по центру */
+		}
+		#menu, #right-panel {
+			width: 20%;
+			min-width: 200px;
+			background-color: wheat;
+		}
+		#content-wrapper {
+			width: 100%;
+			background-color: whitesmoke;
+		}
+
+		/* Якщо екран вузький */
+		@media (max-width:770px) {
+			#wrapper {
+				flex-wrap: wrap; /* Дітей, що не влазять в один рядок, можна переносити */
+			}
+			#menu, #content-wrapper, #right-panel {
+				width: 100%;
+			}
+		}
+
+		/* Відступи */
+		#wrapper > div {
+			padding: 1rem;
+		}
+
+		/* Активний пункт меню */
+		.menuitem-active {
+			font-weight: bold;
+		}
+	</style>
+</body>
+</html>
